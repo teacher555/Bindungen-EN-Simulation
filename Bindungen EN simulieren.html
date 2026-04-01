@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chemie Simulation: Bindungstypen</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 15px;
+            touch-action: manipulation;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid #eee;
+            border-radius: 15px;
+            background: #ffffff;
+            margin: 15px 0;
+            width: 100%;
+            height: auto;
+            touch-action: none;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .control-group {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 12px;
+        }
+        input[type=range] {
+            width: 90%;
+            height: 35px;
+        }
+        .label-text {
+            font-weight: bold;
+            font-size: 1.1em;
+            display: block;
+            margin-bottom: 5px;
+        }
+        #deltaENDisplay {
+            font-size: 1.6em;
+            font-weight: 800;
+            color: #2d3436;
+            margin: 5px 0;
+        }
+        #typeDisplay {
+            font-size: 1.2em;
+            font-weight: 600;
+            padding: 8px;
+            border-radius: 8px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        .type-unpolar { background: #dfe6e9; color: #636e72; }
+        .type-polar { background: #74b9ff; color: white; }
+        .type-ionisch { background: #ff7675; color: white; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="deltaENDisplay">ΔEN = 0.0</div>
+    <div id="typeDisplay" class="type-unpolar">Unpolare Atombindung</div>
+    
+    <canvas id="chemCanvas" width="600" height="300"></canvas>
+
+    <div class="controls">
+        <div class="control-group">
+            <span class="label-text">Atom A (EN): <span id="valA">2.1</span></span>
+            <input type="range" id="enA" min="0" max="4.0" step="0.1" value="2.1">
+        </div>
+        <div class="control-group">
+            <span class="label-text">Atom B (EN): <span id="valB">2.5</span></span>
+            <input type="range" id="enB" min="0" max="4.0" step="0.1" value="2.5">
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('chemCanvas');
+    const ctx = canvas.getContext('2d');
+    const enAInput = document.getElementById('enA');
+    const enBInput = document.getElementById('enB');
+    const valADisp = document.getElementById('valA');
+    const valBDisp = document.getElementById('valB');
+    const deltaDisp = document.getElementById('deltaENDisplay');
+    const typeDisp = document.getElementById('typeDisplay');
+
+    function draw() {
+        const enA = parseFloat(enAInput.value);
+        const enB = parseFloat(enBInput.value);
+        // Korrekte Rundung auf 1 Nachkommastelle
+        const diff = Math.abs(Math.round((enA - enB) * 10) / 10);
+        
+        valADisp.innerText = enA.toFixed(1);
+        valBDisp.innerText = enB.toFixed(1);
+        deltaDisp.innerText = `ΔEN = ${diff.toFixed(1)}`;
+
+        // Logik für Bindungstyp & CSS Klassen
+        typeDisp.className = "";
+        if (diff <= 0.5) {
+            typeDisp.innerText = "Unpolare Atombindung";
+            typeDisp.classList.add("type-unpolar");
+        } else if (diff <= 1.7) {
+            typeDisp.innerText = "Polare Atombindung";
+            typeDisp.classList.add("type-polar");
+        } else {
+            typeDisp.innerText = "Ionenbindung";
+            typeDisp.classList.add("type-ionisch");
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const posA = { x: centerX - 160, y: centerY };
+        const posB = { x: centerX + 160, y: centerY };
+
+        // 1. Bindung zeichnen (Keil) nur bis 1.7
+        if (diff <= 1.7) {
+            if (diff > 0) {
+                ctx.beginPath();
+                const minW = 4;
+                const maxW = 4 + (diff * 25);
+                
+                if (enA > enB) {
+                    ctx.moveTo(posB.x - 40, centerY - minW);
+                    ctx.lineTo(posA.x + 40, centerY - maxW);
+                    ctx.lineTo(posA.x + 40, centerY + maxW);
+                    ctx.lineTo(posB.x - 40, centerY + minW);
+                } else {
+                    ctx.moveTo(posA.x + 40, centerY - minW);
+                    ctx.lineTo(posB.x - 40, centerY - maxW);
+                    ctx.lineTo(posB.x - 40, centerY + maxW);
+                    ctx.lineTo(posA.x + 40, centerY + minW);
+                }
+                ctx.fillStyle = "#2d3436";
+                ctx.fill();
+            } else {
+                ctx.beginPath();
+                ctx.lineWidth = 4;
+                ctx.moveTo(posA.x + 40, centerY);
+                ctx.lineTo(posB.x - 40, centerY);
+                ctx.strokeStyle = "#2d3436";
+                ctx.stroke();
+            }
+        }
+
+        // 2. Atome zeichnen
+        drawAtom(posA, "A", enA, enB);
+        drawAtom(posB, "B", enB, enA);
+        
+        // 3. Ladungen zeichnen (ab 0.6)
+        if (diff >= 0.6) {
+            const isIonic = diff > 1.7;
+            const size = isIonic ? 45 : 18 + (diff * 14);
+            
+            // Symbole festlegen
+            let labelA, labelB;
+            if (enA > enB) {
+                labelA = isIonic ? "−" : "δ−";
+                labelB = isIonic ? "+" : "δ+";
+            } else {
+                labelA = isIonic ? "+" : "δ+";
+                labelB = isIonic ? "−" : "δ−";
+            }
+            
+            drawCharge(posA.x, posA.y - 75, labelA, size);
+            drawCharge(posB.x, posB.y - 75, labelB, size);
+        }
+    }
+
+    function drawAtom(pos, label, myEN, otherEN) {
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, 45, 0, Math.PI * 2);
+        
+        if (myEN > otherEN) ctx.fillStyle = "#ffb3b3"; // Rot-Stich (Elektronenreich)
+        else if (myEN < otherEN) ctx.fillStyle = "#b3d9ff"; // Blau-Stich (Elektronenarm)
+        else ctx.fillStyle = "#f1f2f6";
+        
+        ctx.fill();
+        ctx.strokeStyle = "#2d3436";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        ctx.fillStyle = "#2d3436";
+        ctx.font = "bold 28px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(label, pos.x, pos.y);
+    }
+
+    function drawCharge(x, y, text, size) {
+        ctx.fillStyle = (text.includes("−") || text.includes("-")) ? "#c0392b" : "#2980b9";
+        ctx.font = `bold ${size}px "Times New Roman", serif`;
+        ctx.textAlign = "center";
+        ctx.fillText(text, x, y);
+    }
+
+    enAInput.addEventListener('input', draw);
+    enBInput.addEventListener('input', draw);
+    draw();
+</script>
+
+</body>
+</html>
